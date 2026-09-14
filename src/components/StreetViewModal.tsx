@@ -1,5 +1,8 @@
-import { X, Calendar, MapPin, AlertCircle } from 'lucide-react';
+import { useEffect } from 'react';
+import { X, Calendar, MapPin, AlertCircle, Sparkles } from 'lucide-react';
 import type { DualStreetView } from '../utils/useMapillary';
+import { useImageComparison } from '../utils/useImageComparison';
+import type { DetectedChange } from '../utils/useImageComparison';
 
 interface StreetViewModalProps {
   isOpen: boolean;
@@ -9,7 +12,26 @@ interface StreetViewModalProps {
   error: string | null;
 }
 
+const SIGNIFICANCE_STYLES: Record<DetectedChange['significance'], string> = {
+  high: 'bg-alert-red/15 text-alert-red border-alert-red/40',
+  medium: 'bg-amber-400/15 text-amber-400 border-amber-400/40',
+  low: 'bg-slate-500/15 text-slate-400 border-slate-500/40',
+};
+
+const SCENE_MATCH_NOTE: Record<string, string | null> = {
+  same: null,
+  partial: 'These photos only partly overlap, so some differences may be camera angle rather than real change.',
+  different: 'These photos do not appear to show the same scene — treat the result with caution.',
+};
+
 export default function StreetViewModal({ isOpen, onClose, data, loading, error }: StreetViewModalProps) {
+  const { compare, reset, result, analyzing, error: compareError } = useImageComparison();
+
+  // Drop any previous analysis when a different location is opened.
+  useEffect(() => {
+    reset();
+  }, [data, reset]);
+
   if (!isOpen) return null;
 
   const formatDate = (timestamp: number) => {
@@ -152,6 +174,57 @@ export default function StreetViewModal({ isOpen, onClose, data, loading, error 
                   <p className="text-accent-green font-semibold">
                     📊 Time span: {Math.round((data.newer.capturedAt - data.older.capturedAt) / (1000 * 60 * 60 * 24 * 365.25))} years
                   </p>
+                </div>
+              )}
+
+              {/* AI change detection */}
+              {data.older && data.newer && (
+                <div className="mt-4 p-4 bg-dark-700 rounded-lg">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-info-blue" />
+                      <span className="text-sm font-semibold text-slate-200">AI Change Detection</span>
+                    </div>
+                    <button
+                      onClick={() => compare(data)}
+                      disabled={analyzing}
+                      className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-info-blue text-dark-900 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                    >
+                      {analyzing ? 'Analysing…' : result ? 'Re-analyse' : 'Compare with Gemini'}
+                    </button>
+                  </div>
+
+                  {compareError && (
+                    <p className="mt-3 text-sm text-alert-red">{compareError}</p>
+                  )}
+
+                  {result && (
+                    <div className="mt-3 space-y-3">
+                      {SCENE_MATCH_NOTE[result.sceneMatch] && (
+                        <p className="text-xs text-amber-400 flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-px" />
+                          {SCENE_MATCH_NOTE[result.sceneMatch]}
+                        </p>
+                      )}
+
+                      <p className="text-sm text-slate-300">{result.summary}</p>
+
+                      {result.changes.length > 0 && (
+                        <ul className="space-y-2">
+                          {result.changes.map((change, i) => (
+                            <li key={i} className="flex items-start gap-3 text-sm">
+                              <span
+                                className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide flex-shrink-0 ${SIGNIFICANCE_STYLES[change.significance]}`}
+                              >
+                                {change.category}
+                              </span>
+                              <span className="text-slate-300">{change.description}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -42,3 +42,7 @@
 .read-the-docs {
   color: #888;
 }
+
+.dark-tiles {
+  filter: brightness(0.7) invert(1) hue-rotate(180deg) saturate(0.85) contrast(1.05);
+}

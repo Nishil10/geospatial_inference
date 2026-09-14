@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^2.13.0",
     "@tensorflow-models/coco-ssd": "^2.2.3",
     "@tensorflow/tfjs": "^4.22.0",
     "bcryptjs": "^3.0.3",
@@ -20,6 +21,7 @@
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
     "firebase": "^12.11.0",
+    "jsonwebtoken": "^9.0.3",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.575.0",
     "mapillary-js": "^4.1.2",

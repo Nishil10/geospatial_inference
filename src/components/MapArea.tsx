@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Rectangle, CircleMarker, useMapEvents, Tooltip } from 'react-leaflet';
 import { mockRegions } from '../utils/regions';
 import type { Region } from '../utils/regions';
@@ -27,6 +28,9 @@ function MapClickHandler({
     comparisonMode?: boolean;
     onBoundsChange?: (bounds: { north: number; south: number; east: number; west: number }) => void;
 }) {
+    const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Leaflet fires moveend after a zoom too, so this covers both gestures.
     const map = useMapEvents({
         click: (e) => {
             if (onMapClick && comparisonMode) {
@@ -34,9 +38,12 @@ function MapClickHandler({
                 onMapClick([lat, lng]);
             }
         },
+        // A coverage refresh fans out into several Mapillary requests, so settle
+        // first instead of firing on every intermediate pan/zoom frame.
         moveend: () => {
-            // Always update bounds to load coverage points
-            if (onBoundsChange) {
+            if (!onBoundsChange) return;
+            if (timer.current) clearTimeout(timer.current);
+            timer.current = setTimeout(() => {
                 const bounds = map.getBounds();
                 onBoundsChange({
                     north: bounds.getNorth(),
@@ -44,21 +51,14 @@ function MapClickHandler({
                     east: bounds.getEast(),
                     west: bounds.getWest(),
                 });
-            }
-        },
-        zoomend: () => {
-            // Always update bounds to load coverage points
-            if (onBoundsChange) {
-                const bounds = map.getBounds();
-                onBoundsChange({
-                    north: bounds.getNorth(),
-                    south: bounds.getSouth(),
-                    east: bounds.getEast(),
-                    west: bounds.getWest(),
-                });
-            }
+            }, 400);
         },
     });
+
+    useEffect(() => () => {
+        if (timer.current) clearTimeout(timer.current);
+    }, []);
+
     return null;
 }
 
@@ -85,8 +85,9 @@ export default function MapArea({ selectedRegion, onRegionSelect, baseLayer, tra
                 {baseLayer === 'dark' && (
                     <TileLayer
                         key="dark"
-                        attribution='&copy; <a href="https://carto.com/">Carto</a>'
-                        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        className="dark-tiles"
                         noWrap={true}
                         bounds={[[-90, -180], [90, 180]]}
                     />

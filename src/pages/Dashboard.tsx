@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import MapArea from '../components/MapArea';
@@ -10,6 +10,8 @@ import type { BaseLayerType } from '../components/LayerControls';
 import type { Map as LeafletMap } from 'leaflet';
 import { useMapillary } from '../utils/useMapillary';
 import type { DualStreetView } from '../utils/useMapillary';
+import { useCityInsights } from '../utils/useCityInsights';
+import type { CityResult } from '../components/CitySearch';
 
 const YEARS = [2019, 2020, 2021, 2022, 2023, 2024];
 
@@ -27,15 +29,54 @@ export default function Dashboard() {
         fetchCoveragePoints,
         clearCoveragePoints,
         coveragePoints,
-        loading: streetViewLoading, 
-        error: streetViewError 
+        loadingCoverage,
+        coverageNotice,
+        loading: streetViewLoading,
+        error: streetViewError
     } = useMapillary();
+
+    const { data: insights, loading: insightsLoading, error: insightsError, load: loadInsights, retry: retryInsights } = useCityInsights();
+    const [requested, setRequested] = useState<{ lat: number; lon: number } | null>(null);
+    const lastReadKey = useRef<string | null>(null);
 
     const handleRegionFlyTo = (coords: [number, number], zoom: number) => {
         if (mapInstance) {
             mapInstance.flyTo(coords, zoom, { duration: 1.5 });
         }
     };
+
+    const handleCitySelect = (city: CityResult) => {
+        if (mapInstance) {
+            mapInstance.flyTo([city.lat, city.lon], 13, { duration: 1.5 });
+        }
+    };
+
+    // Read whatever the map is centred on. Each read costs a live Overpass
+    // query, so wait for the pan to settle and skip nudges too small to change
+    // the server's cache key (it rounds coordinates to 2dp, roughly 1.1km).
+    useEffect(() => {
+        if (!mapInstance) return;
+
+        let timer: number;
+        const read = () => {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(() => {
+                const c = mapInstance.getCenter();
+                const key = `${c.lat.toFixed(2)},${c.lng.toFixed(2)}`;
+                if (lastReadKey.current === key) return;
+                lastReadKey.current = key;
+                setRequested({ lat: c.lat, lon: c.lng });
+                loadInsights(c.lat, c.lng);
+            }, 800);
+        };
+
+        read();
+        mapInstance.on('moveend', read);
+        return () => {
+            window.clearTimeout(timer);
+            mapInstance.off('moveend', read);
+        };
+    }, [mapInstance, loadInsights]);
 
     const handleMapClick = async (coords: [number, number]) => {
         // Only trigger street view comparison when comparison mode is enabled
@@ -92,6 +133,7 @@ export default function Dashboard() {
                 comparisonMode={comparisonMode}
                 setComparisonMode={setComparisonMode}
                 onRegionFlyTo={handleRegionFlyTo}
+                onCitySelect={handleCitySelect}
             />
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Comparison Mode Indicator */}
@@ -109,7 +151,11 @@ export default function Dashboard() {
                                 <span className="text-xs font-medium text-slate-300">Street View Available</span>
                             </div>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1">Hover over dots • Click to compare</p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                            {loadingCoverage
+                                ? 'Loading coverage…'
+                                : coverageNotice ?? 'Hover over dots • Click to compare'}
+                        </p>
                     </div>
                 )}
 
@@ -125,8 +171,11 @@ export default function Dashboard() {
                     onBoundsChange={handleBoundsChange}
                 />
                 <Sidebar
-                    selectedRegion={selectedRegion}
-                    activeYear={activeYear}
+                    insights={insights}
+                    loading={insightsLoading}
+                    error={insightsError}
+                    onRetry={retryInsights}
+                    requested={requested}
                 />
                 <Timeline
                     years={YEARS}

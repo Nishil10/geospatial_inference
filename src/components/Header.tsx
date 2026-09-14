@@ -2,6 +2,8 @@ import { Satellite, AlertTriangle } from 'lucide-react';
 import LayerControls from './LayerControls';
 import type { BaseLayerType } from './LayerControls';
 import RegionsDropdown from './RegionsDropdown';
+import CitySearch from './CitySearch';
+import type { CityResult } from './CitySearch';
 
 interface HeaderProps {
     baseLayer?: BaseLayerType;
@@ -11,9 +13,10 @@ interface HeaderProps {
     comparisonMode?: boolean;
     setComparisonMode?: (enabled: boolean) => void;
     onRegionFlyTo?: (coords: [number, number], zoom: number) => void;
+    onCitySelect?: (city: CityResult) => void;
 }
 
-export default function Header({ baseLayer, setBaseLayer, trafficEnabled, setTrafficEnabled, comparisonMode, setComparisonMode, onRegionFlyTo }: HeaderProps) {
+export default function Header({ baseLayer, setBaseLayer, trafficEnabled, setTrafficEnabled, comparisonMode, setComparisonMode, onRegionFlyTo, onCitySelect }: HeaderProps) {
     return (
         <header className="h-16 bg-dark-900 border-b border-dark-700/50 flex items-center justify-between px-6 z-[1010] relative drop-shadow-md">
             <div className="flex items-center gap-3">
@@ -30,6 +33,7 @@ export default function Header({ baseLayer, setBaseLayer, trafficEnabled, setTra
             </div>
 
             <div className="flex items-center gap-4">
+                {onCitySelect && <CitySearch onSelect={onCitySelect} />}
                 {baseLayer && setBaseLayer && setTrafficEnabled !== undefined ? (
                     <LayerControls
                         baseLayer={baseLayer}

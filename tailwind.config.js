@@ -18,7 +18,12 @@ export default {
           alert: '#ef4444', /* red */
           warning: '#fbbf24', /* amber */
           info: '#3b82f6' /* blue */
-        }
+        },
+        /* Aliases used by StreetViewModal — without these the classes emit no CSS */
+        accent: { green: '#10b981' },
+        alert: { red: '#ef4444' },
+        warning: { amber: '#fbbf24' },
+        info: { blue: '#3b82f6' }
       }
     },
   },
