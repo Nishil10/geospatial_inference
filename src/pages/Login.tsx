@@ -108,7 +108,7 @@ export default function Login() {
                             onClick={() => setShowPw((v) => !v)}
                             aria-label={showPw ? 'Hide password' : 'Show password'}
                             aria-pressed={showPw}
-                            className="absolute right-1.5 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-md text-slate-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/70"
+                            className="absolute right-1.5 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-[3px] text-slate-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/70"
                         >
                             {showPw ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
                         </button>
@@ -129,7 +129,7 @@ export default function Login() {
                 <button
                     type="submit"
                     disabled={submitting}
-                    className="group relative mt-2 flex h-12 w-full items-center justify-center gap-2.5 overflow-hidden rounded-md bg-brand-accent text-[12px] font-bold uppercase tracking-[0.16em] text-dark-900 transition-colors duration-200 hover:bg-[#34d399] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:bg-brand-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#080e1a]"
+                    className="group relative mt-2 flex h-12 w-full items-center justify-center gap-2.5 overflow-hidden rounded-[3px] bg-brand-accent text-[12px] font-bold uppercase tracking-[0.16em] text-dark-900 transition-colors duration-200 hover:bg-[#34d399] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:bg-brand-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[#080e1a]"
                 >
                     {submitting ? (
                         <>

@@ -24,6 +24,7 @@ export default function Dashboard() {
     const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
     const [streetViewOpen, setStreetViewOpen] = useState(false);
     const [streetViewData, setStreetViewData] = useState<DualStreetView | null>(null);
+    const [streetViewFix, setStreetViewFix] = useState<[number, number] | null>(null);
     const { 
         fetchStreetViewImages, 
         fetchCoveragePoints,
@@ -32,7 +33,8 @@ export default function Dashboard() {
         loadingCoverage,
         coverageNotice,
         loading: streetViewLoading,
-        error: streetViewError
+        error: streetViewError,
+        configured: mapillaryConfigured
     } = useMapillary();
 
     const { data: insights, loading: insightsLoading, error: insightsError, load: loadInsights, retry: retryInsights } = useCityInsights();
@@ -81,7 +83,8 @@ export default function Dashboard() {
     const handleMapClick = async (coords: [number, number]) => {
         // Only trigger street view comparison when comparison mode is enabled
         if (!comparisonMode) return;
-        
+
+        setStreetViewFix(coords);
         try {
             const data = await fetchStreetViewImages(coords[0], coords[1]);
             setStreetViewData(data);
@@ -124,7 +127,7 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="flex flex-col h-screen w-full bg-dark-900 text-slate-200 font-sans selection:bg-brand-accent selection:text-dark-900">
+        <div className="flex h-screen w-full flex-col bg-dark-900 text-slate-200 selection:bg-brand-accent selection:text-dark-900">
             <Header
                 baseLayer={baseLayer}
                 setBaseLayer={setBaseLayer}
@@ -134,31 +137,9 @@ export default function Dashboard() {
                 setComparisonMode={setComparisonMode}
                 onRegionFlyTo={handleRegionFlyTo}
                 onCitySelect={handleCitySelect}
+                coords={requested}
             />
-            <div className="flex flex-1 overflow-hidden relative">
-                {/* Comparison Mode Indicator */}
-                {comparisonMode && (
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-brand-accent/90 text-dark-900 px-4 py-2 rounded-full text-sm font-semibold shadow-lg flex items-center gap-2 animate-pulse">
-                        📸 Comparison Mode Active - Click on green dots to view street comparison
-                    </div>
-                )}
-
-                {comparisonMode && (
-                    <div className="absolute bottom-24 left-4 z-[1000] bg-dark-800/95 backdrop-blur-sm px-4 py-3 rounded-xl shadow-lg border border-dark-600">
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow-sm"></div>
-                                <span className="text-xs font-medium text-slate-300">Street View Available</span>
-                            </div>
-                        </div>
-                        <p className="text-[10px] text-slate-400 mt-1">
-                            {loadingCoverage
-                                ? 'Loading coverage…'
-                                : coverageNotice ?? 'Hover over dots • Click to compare'}
-                        </p>
-                    </div>
-                )}
-
+            <div className="relative flex flex-1 overflow-hidden">
                 <MapArea
                     selectedRegion={selectedRegion}
                     onRegionSelect={setSelectedRegion}
@@ -170,6 +151,46 @@ export default function Dashboard() {
                     coveragePoints={coveragePoints}
                     onBoundsChange={handleBoundsChange}
                 />
+
+                {/* ---- Comparison mode -------------------------------------------
+                    An armed instrument states its mode and what it wants next. One
+                    LED, two mono clauses — no emoji, and no pulsing pill: the dot
+                    carries the liveness so the text can stay still and readable. */}
+                {comparisonMode && (
+                    <>
+                        <div className="glass-panel absolute left-1/2 top-4 z-[1000] flex -translate-x-1/2 items-center gap-2.5 px-3 py-1.5">
+                            <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                {mapillaryConfigured && (
+                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-accent opacity-60 motion-reduce:hidden" />
+                                )}
+                                <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${mapillaryConfigured ? 'bg-brand-accent' : 'bg-brand-warning'}`} />
+                            </span>
+                            <span className={`font-mono text-[10px] uppercase tracking-label ${mapillaryConfigured ? 'text-brand-accent' : 'text-brand-warning'}`}>
+                                {mapillaryConfigured ? 'Comparison armed' : 'Comparison unavailable'}
+                            </span>
+                            <span aria-hidden="true" className="h-3 w-px bg-white/10" />
+                            <span className="font-mono text-[10px] uppercase tracking-label text-slate-400">
+                                {mapillaryConfigured ? 'Select a node' : 'No Mapillary token'}
+                            </span>
+                        </div>
+
+                        <div className="glass-panel absolute bottom-28 left-4 z-[1000] w-[210px] px-3 py-2.5">
+                            <p className="gd-eyebrow">Key</p>
+                            <div className="mt-2 flex items-center gap-2">
+                                <span className="h-2 w-2 shrink-0 rounded-full bg-brand-accent ring-1 ring-[#042f2e]" />
+                                <span className="text-[11px] text-slate-300">Street view node</span>
+                            </div>
+                            <p className="mt-1.5 text-[10px] leading-snug text-slate-500">
+                                {!mapillaryConfigured
+                                    ? 'Set VITE_MAPILLARY_API_KEY in .env, then restart the dev server.'
+                                    : loadingCoverage
+                                      ? 'Loading coverage…'
+                                      : coverageNotice ?? 'Click a node to compare epochs.'}
+                            </p>
+                        </div>
+                    </>
+                )}
+
                 <Sidebar
                     insights={insights}
                     loading={insightsLoading}
@@ -187,6 +208,7 @@ export default function Dashboard() {
                 isOpen={streetViewOpen}
                 onClose={() => setStreetViewOpen(false)}
                 data={streetViewData}
+                fix={streetViewFix}
                 loading={streetViewLoading}
                 error={streetViewError}
             />

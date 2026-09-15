@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-import { Globe, Search, ChevronRight } from 'lucide-react';
+import { Globe, Search, CornerDownLeft } from 'lucide-react';
+import clsx from 'clsx';
 
-export interface WorldRegion {
+interface WorldRegion {
     id: string;
     name: string;
     coordinates: [number, number];
     zoom: number;
 }
 
-export const WORLD_REGIONS: WorldRegion[] = [
+const WORLD_REGIONS: WorldRegion[] = [
     { id: 'na', name: 'North America', coordinates: [45.0, -100.0], zoom: 3 },
     { id: 'sa', name: 'South America', coordinates: [-15.0, -60.0], zoom: 3 },
     { id: 'eu', name: 'Europe', coordinates: [50.0, 10.0], zoom: 4 },
@@ -26,6 +27,10 @@ export const WORLD_REGIONS: WorldRegion[] = [
 interface RegionsDropdownProps {
     onFlyTo: (coords: [number, number], zoom: number) => void;
 }
+
+/** The target the map will actually fly to, printed as a survey fix. */
+const fixOf = ([lat, lon]: [number, number]) =>
+    `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'}`;
 
 export default function RegionsDropdown({ onFlyTo }: RegionsDropdownProps) {
     const [isOpen, setIsOpen] = useState(false);
@@ -50,60 +55,60 @@ export default function RegionsDropdown({ onFlyTo }: RegionsDropdownProps) {
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${isOpen ? 'bg-dark-800 text-white shadow-inner' : 'hover:bg-dark-800 text-slate-300'
-                    }`}
+                aria-expanded={isOpen}
+                className={clsx(
+                    'flex items-center gap-2 rounded-[3px] px-3 py-1.5 font-mono text-[10px] font-medium uppercase tracking-label transition-colors',
+                    isOpen ? 'bg-dark-800 text-white' : 'text-slate-400 hover:bg-dark-800 hover:text-white',
+                )}
             >
-                <Globe size={16} className={isOpen ? "text-brand-info" : ""} />
+                <Globe size={13} strokeWidth={2} className={isOpen ? 'text-brand-accent' : ''} />
                 <span>Regions</span>
             </button>
 
             {isOpen && (
-                <div className="absolute top-full right-0 mt-2 w-72 bg-dark-800/90 backdrop-blur-xl border border-dark-600 shadow-2xl rounded-2xl z-[1050] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-
-                    {/* Search Bar */}
-                    <div className="p-3 border-b border-dark-600/50">
+                <div className="gd-card gd-slip absolute right-0 top-full z-[1050] mt-2 w-72 overflow-hidden">
+                    <div className="border-b border-white/[0.07] p-2">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" size={13} />
                             <input
                                 type="text"
-                                placeholder="Search continents..."
+                                placeholder="Filter continents…"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-dark-900/50 text-white text-sm rounded-xl pl-9 pr-4 py-2 border border-dark-600 focus:border-brand-info focus:ring-1 focus:ring-brand-info outline-none transition-all"
+                                className="w-full rounded-[2px] border border-white/[0.07] bg-dark-900/70 py-1.5 pl-8 pr-3 text-[13px] text-white outline-none transition-colors placeholder:text-slate-500 focus:border-brand-accent/50"
                             />
                         </div>
                     </div>
 
-                    {/* Regions List */}
-                    <div className="max-h-80 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-dark-600 scrollbar-track-transparent">
+                    <div className="max-h-80 overflow-y-auto p-1.5">
                         {filteredRegions.length > 0 ? (
-                            <div className="flex flex-col gap-1">
-                                {filteredRegions.map((region) => (
-                                    <button
-                                        key={region.id}
-                                        onClick={() => {
-                                            onFlyTo(region.coordinates, region.zoom);
-                                            setIsOpen(false);
-                                            setSearchQuery('');
-                                        }}
-                                        className="flex justify-between items-center w-full text-left px-3 py-2.5 rounded-xl hover:bg-dark-700/80 transition-all group"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-1.5 rounded-lg bg-dark-900/50 text-slate-400 group-hover:text-brand-info group-hover:bg-brand-info/10 transition-colors">
-                                                <Globe size={14} />
-                                            </div>
-                                            <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
-                                                {region.name}
-                                            </span>
-                                        </div>
-                                        <ChevronRight size={14} className="text-slate-600 group-hover:text-brand-info group-hover:translate-x-1 transition-all" />
-                                    </button>
-                                ))}
-                            </div>
+                            filteredRegions.map((region) => (
+                                <button
+                                    key={region.id}
+                                    onClick={() => {
+                                        onFlyTo(region.coordinates, region.zoom);
+                                        setIsOpen(false);
+                                        setSearchQuery('');
+                                    }}
+                                    className="group flex w-full items-center gap-2.5 rounded-[2px] px-2 py-2 text-left transition-colors hover:bg-white/[0.04]"
+                                >
+                                    <span className="h-4 w-[2px] shrink-0 rounded-[1px] bg-white/10 transition-colors group-hover:bg-brand-accent" />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-[13px] leading-tight text-slate-300 transition-colors group-hover:text-white">
+                                            {region.name}
+                                        </span>
+                                        <span className="gd-readout mt-0.5 block text-[10px] text-slate-600">
+                                            {fixOf(region.coordinates)} &middot; z{region.zoom}
+                                        </span>
+                                    </span>
+                                    <CornerDownLeft
+                                        size={12}
+                                        className="shrink-0 text-transparent transition-colors group-hover:text-brand-accent"
+                                    />
+                                </button>
+                            ))
                         ) : (
-                            <div className="py-6 text-center text-sm text-slate-500">
-                                No regions found
-                            </div>
+                            <p className="px-2 py-6 text-center text-[13px] text-slate-500">No regions match</p>
                         )}
                     </div>
                 </div>

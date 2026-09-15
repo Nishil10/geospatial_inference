@@ -97,7 +97,7 @@ const classify = (status: number, body: GraphResponse | null): MapillaryError =>
   const message: string = err.message ?? `HTTP ${status}`;
 
   if (status === 401 || status === 403 || err.code === 190) {
-    return new MapillaryError('auth', 'Mapillary rejected the access token. Check VITE_MAPILLARY_API_KEY in .env.local.');
+    return new MapillaryError('auth', 'Mapillary rejected the access token. Check VITE_MAPILLARY_API_KEY in .env.');
   }
   if (err.code === 100 && err.error_subcode === 1) {
     return new MapillaryError('bbox_too_large', message);
@@ -116,7 +116,7 @@ const requestImages = async (
 ): Promise<RawImage[]> => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    throw new MapillaryError('auth', 'Mapillary API key not configured. Add VITE_MAPILLARY_API_KEY to .env.local and restart the dev server.');
+    throw new MapillaryError('auth', 'Mapillary API key not configured. Add VITE_MAPILLARY_API_KEY to .env and restart the dev server.');
   }
 
   const url = new URL(GRAPH_URL);
@@ -469,5 +469,9 @@ export const useMapillary = () => {
     coverageNotice,
     loading,
     error,
+    /** Whether a Mapillary token is present at all. Build-time constant, so the
+     *  UI can state the problem up front instead of making the user click a
+     *  road to discover the feature was never configured. */
+    configured: Boolean(getApiKey()),
   };
 };

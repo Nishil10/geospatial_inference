@@ -644,14 +644,14 @@ export default function Sidebar({ insights, loading, error, onRetry, requested, 
               key={error}
               role="alert"
               className={clsx(
-                'mx-4 my-4 rounded-lg border p-4',
+                'mx-4 my-4 rounded-[3px] border p-4',
                 kind === 'upstream' ? 'border-brand-warning/25 bg-brand-warning/[0.06]' : 'border-red-400/25 bg-brand-alert/[0.06]'
               )}
             >
               <div className="flex items-start gap-2.5">
                 <span
                   className={clsx(
-                    'grid size-8 shrink-0 place-items-center rounded-md ring-1 ring-inset',
+                    'grid size-8 shrink-0 place-items-center rounded-[3px] ring-1 ring-inset',
                     kind === 'upstream' ? 'bg-brand-warning/10 ring-brand-warning/30' : 'bg-brand-alert/10 ring-red-400/30'
                   )}
                 >
@@ -673,7 +673,7 @@ export default function Sidebar({ insights, loading, error, onRetry, requested, 
                 <button
                   type="button"
                   onClick={onRetry}
-                  className="mt-3.5 flex h-9 w-full items-center justify-center gap-2 rounded-md bg-brand-accent text-[11px] font-bold uppercase tracking-[0.16em] text-dark-900 transition-colors duration-200 hover:bg-[#34d399] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-dark-800 motion-reduce:transition-none"
+                  className="mt-3.5 flex h-9 w-full items-center justify-center gap-2 rounded-[3px] bg-brand-accent text-[11px] font-bold uppercase tracking-[0.16em] text-dark-900 transition-colors duration-200 hover:bg-[#34d399] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-dark-800 motion-reduce:transition-none"
                 >
                   <RefreshCw size={14} aria-hidden="true" /> Try again
                 </button>
@@ -721,7 +721,7 @@ export default function Sidebar({ insights, loading, error, onRetry, requested, 
           {!insights && !loading && !error && (
             <>
               <div className="flex flex-col items-center justify-center px-6 py-8 text-center">
-                <div className="grid size-11 place-items-center rounded-md border border-dashed border-dark-600">
+                <div className="grid size-11 place-items-center rounded-[3px] border border-dashed border-dark-600">
                   <Crosshair size={20} aria-hidden="true" className="text-slate-400" />
                 </div>
                 <p className="mt-3.5 text-[13px] font-semibold text-white">No location read yet</p>
@@ -769,7 +769,7 @@ export default function Sidebar({ insights, loading, error, onRetry, requested, 
               onClick={onRetry}
               disabled={loading || !requested}
               aria-label="Re-read this location"
-              className="grid size-7 shrink-0 place-items-center rounded-md text-slate-400 transition-colors hover:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-dark-800 motion-reduce:transition-none"
+              className="grid size-7 shrink-0 place-items-center rounded-[3px] text-slate-400 transition-colors hover:text-white disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-dark-800 motion-reduce:transition-none"
             >
               <RefreshCw size={13} className={clsx(loading && 'animate-spin motion-reduce:animate-none')} />
             </button>

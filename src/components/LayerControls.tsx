@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Layers, GitCompare } from 'lucide-react';
+import { Layers, GitCompare, Moon, Satellite, Map as MapIcon, Car } from 'lucide-react';
+import clsx from 'clsx';
 
 export type BaseLayerType = 'dark' | 'satellite' | 'street';
 
@@ -11,6 +12,14 @@ interface LayerControlsProps {
     comparisonMode?: boolean;
     setComparisonMode?: (enabled: boolean) => void;
 }
+
+/** Each base layer names the source it actually requests, so the menu doubles
+ *  as provenance — see the TileLayer urls in MapArea.tsx. */
+const BASE_LAYERS: { id: BaseLayerType; name: string; source: string; Icon: typeof Moon }[] = [
+    { id: 'dark', name: 'Dark GIS', source: 'OpenStreetMap', Icon: Moon },
+    { id: 'satellite', name: 'Satellite', source: 'Esri World Imagery', Icon: Satellite },
+    { id: 'street', name: 'Street', source: 'OpenStreetMap', Icon: MapIcon },
+];
 
 export default function LayerControls({
     baseLayer,
@@ -38,77 +47,113 @@ export default function LayerControls({
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${isOpen ? 'bg-dark-800 text-white' : 'hover:bg-dark-800 text-slate-300'
-                    }`}
+                aria-expanded={isOpen}
+                className={clsx(
+                    'flex items-center gap-2 rounded-[3px] px-3 py-1.5 font-mono text-[10px] font-medium uppercase tracking-label transition-colors',
+                    isOpen ? 'bg-dark-800 text-white' : 'text-slate-400 hover:bg-dark-800 hover:text-white',
+                )}
             >
-                <Layers size={16} className={isOpen ? "text-brand-info" : ""} />
+                <Layers size={13} strokeWidth={2} className={isOpen ? 'text-brand-accent' : ''} />
                 <span>Layers</span>
             </button>
 
             {isOpen && (
-                <div className="absolute top-full left-0 mt-2 w-56 flex flex-col gap-3 p-3 bg-dark-800/90 backdrop-blur-md border border-dark-600 shadow-xl rounded-xl z-[1050] animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1">Base Map</label>
-                        <button
-                            onClick={() => { setBaseLayer('dark'); setIsOpen(false); }}
-                            className={`w-full text-left px-3 py-2 text-sm font-medium rounded-lg transition-colors ${baseLayer === 'dark' ? 'bg-brand-info/20 text-brand-info border border-brand-info/30' : 'hover:bg-dark-700 text-slate-300 border border-transparent'
-                                }`}
-                        >
-                            Dark GIS
-                        </button>
-                        <button
-                            onClick={() => { setBaseLayer('satellite'); setIsOpen(false); }}
-                            className={`w-full text-left px-3 py-2 text-sm font-medium rounded-lg transition-colors ${baseLayer === 'satellite' ? 'bg-brand-info/20 text-brand-info border border-brand-info/30' : 'hover:bg-dark-700 text-slate-300 border border-transparent'
-                                }`}
-                        >
-                            🛰 Satellite View (Default)
-                        </button>
-                        <button
-                            onClick={() => { setBaseLayer('street'); setIsOpen(false); }}
-                            className={`w-full text-left px-3 py-2 text-sm font-medium rounded-lg transition-colors ${baseLayer === 'street' ? 'bg-brand-info/20 text-brand-info border border-brand-info/30' : 'hover:bg-dark-700 text-slate-300 border border-transparent'
-                                }`}
-                        >
-                            🗺 Street View
-                        </button>
+                <div className="gd-card gd-slip absolute left-0 top-full z-[1050] mt-2 w-64 p-2">
+                    <p className="gd-eyebrow px-2 pb-1.5 pt-1">Base map</p>
+                    <div className="space-y-px">
+                        {BASE_LAYERS.map(({ id, name, source, Icon }) => {
+                            const active = baseLayer === id;
+                            return (
+                                <button
+                                    key={id}
+                                    onClick={() => { setBaseLayer(id); setIsOpen(false); }}
+                                    className={clsx(
+                                        'flex w-full items-center gap-2.5 rounded-[2px] px-2 py-2 text-left transition-colors',
+                                        active ? 'bg-brand-accent/10' : 'hover:bg-white/[0.04]',
+                                    )}
+                                >
+                                    {/* Selection reads as a lit indicator lamp, not a filled pill. */}
+                                    <span
+                                        className={clsx(
+                                            'h-4 w-[2px] shrink-0 rounded-[1px]',
+                                            active ? 'bg-brand-accent' : 'bg-white/10',
+                                        )}
+                                    />
+                                    <Icon
+                                        size={14}
+                                        strokeWidth={1.75}
+                                        className={clsx('shrink-0', active ? 'text-brand-accent' : 'text-slate-400')}
+                                    />
+                                    <span className="min-w-0 flex-1">
+                                        <span className={clsx('block text-[13px] leading-tight', active ? 'text-white' : 'text-slate-300')}>
+                                            {name}
+                                        </span>
+                                        <span className="gd-eyebrow mt-0.5 block truncate normal-case tracking-[0.1em] text-slate-600">
+                                            {source}
+                                        </span>
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
 
-                    <div className="h-px w-full bg-dark-600/50"></div>
+                    <div className="my-2 h-px bg-white/[0.07]" />
 
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1">Overlays</label>
-                        <label className="flex items-center gap-3 cursor-pointer group px-2 py-1.5 rounded-lg hover:bg-dark-700 transition-colors">
-                            <input
-                                type="checkbox"
-                                checked={trafficEnabled}
-                                onChange={(e) => setTrafficEnabled(e.target.checked)}
-                                className="w-4 h-4 rounded border-dark-500 bg-dark-800 text-brand-info focus:ring-brand-info focus:ring-offset-dark-800 transition-colors cursor-pointer"
-                            />
-                            <span className={`text-sm font-medium transition-colors ${trafficEnabled ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>
-                                🚗 Live Traffic
-                            </span>
-                        </label>
-                    </div>
+                    <p className="gd-eyebrow px-2 pb-1.5">Overlays</p>
+                    <label className="flex cursor-pointer items-center gap-2.5 rounded-[2px] px-2 py-2 transition-colors hover:bg-white/[0.04]">
+                        <span
+                            className={clsx(
+                                'h-4 w-[2px] shrink-0 rounded-[1px]',
+                                trafficEnabled ? 'bg-brand-info' : 'bg-white/10',
+                            )}
+                        />
+                        <Car
+                            size={14}
+                            strokeWidth={1.75}
+                            className={clsx('shrink-0', trafficEnabled ? 'text-brand-info' : 'text-slate-400')}
+                        />
+                        <span className={clsx('flex-1 text-[13px]', trafficEnabled ? 'text-white' : 'text-slate-300')}>
+                            Live traffic
+                        </span>
+                        <input
+                            type="checkbox"
+                            checked={trafficEnabled}
+                            onChange={(e) => setTrafficEnabled(e.target.checked)}
+                            className="h-3.5 w-3.5 cursor-pointer rounded-[2px] border-dark-500 bg-dark-900 text-brand-info"
+                        />
+                    </label>
 
                     {setComparisonMode && (
                         <>
-                            <div className="h-px w-full bg-dark-600/50"></div>
-
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1">Street View</label>
-                                <button
-                                    onClick={() => { setComparisonMode(!comparisonMode); setIsOpen(false); }}
-                                    className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${comparisonMode 
-                                        ? 'bg-brand-accent/20 text-brand-accent border border-brand-accent/30' 
-                                        : 'hover:bg-dark-700 text-slate-300 border border-transparent'
-                                    }`}
-                                >
-                                    <GitCompare size={16} />
-                                    <div className="text-left">
-                                        <span className="block">📸 Comparison View</span>
-                                        <span className="text-[10px] text-slate-400">Click map to compare street views</span>
-                                    </div>
-                                </button>
-                            </div>
+                            <div className="my-2 h-px bg-white/[0.07]" />
+                            <p className="gd-eyebrow px-2 pb-1.5">Street view</p>
+                            <button
+                                onClick={() => { setComparisonMode(!comparisonMode); setIsOpen(false); }}
+                                className={clsx(
+                                    'flex w-full items-center gap-2.5 rounded-[2px] px-2 py-2 text-left transition-colors',
+                                    comparisonMode ? 'bg-brand-accent/10' : 'hover:bg-white/[0.04]',
+                                )}
+                            >
+                                <span
+                                    className={clsx(
+                                        'h-4 w-[2px] shrink-0 rounded-[1px]',
+                                        comparisonMode ? 'bg-brand-accent' : 'bg-white/10',
+                                    )}
+                                />
+                                <GitCompare
+                                    size={14}
+                                    strokeWidth={1.75}
+                                    className={clsx('shrink-0', comparisonMode ? 'text-brand-accent' : 'text-slate-400')}
+                                />
+                                <span className="min-w-0 flex-1">
+                                    <span className={clsx('block text-[13px] leading-tight', comparisonMode ? 'text-white' : 'text-slate-300')}>
+                                        Comparison view
+                                    </span>
+                                    <span className="gd-eyebrow mt-0.5 block normal-case tracking-[0.1em] text-slate-600">
+                                        {comparisonMode ? 'Armed — click a node' : 'Compare two street epochs'}
+                                    </span>
+                                </span>
+                            </button>
                         </>
                     )}
                 </div>

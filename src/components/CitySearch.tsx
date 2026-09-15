@@ -96,8 +96,8 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
     <div className="relative" ref={wrapRef}>
       <div className="relative">
         <Search
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-          size={14}
+          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"
+          size={13}
           aria-hidden="true"
         />
         <input
@@ -109,12 +109,12 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder="Search a city…"
+          placeholder="Locate a city…"
           aria-label="Search for a city"
           role="combobox"
           aria-expanded={open && results.length > 0}
           aria-controls="city-search-results"
-          className="w-52 rounded-lg border border-dark-600 bg-dark-800 py-1.5 pl-9 pr-8 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-brand-accent/70 focus:ring-1 focus:ring-brand-accent/40"
+          className="w-40 rounded-[3px] border border-white/[0.07] bg-dark-800 py-1.5 pl-8 pr-8 text-[13px] text-white outline-none transition-colors placeholder:text-slate-500 focus:border-brand-accent/60 lg:w-52"
         />
         {loading && (
           <Loader2
@@ -129,7 +129,7 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
         <div
           id="city-search-results"
           role="listbox"
-          className="absolute right-0 top-full z-[1050] mt-2 w-72 overflow-hidden rounded-xl border border-dark-600 bg-dark-800/95 shadow-2xl backdrop-blur-xl"
+          className="gd-card gd-slip absolute right-0 top-full z-[1050] mt-2 w-72 overflow-hidden"
         >
           {results.length > 0 ? (
             <ul className="max-h-72 overflow-y-auto p-1.5">
@@ -141,8 +141,8 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
                     aria-selected={i === active}
                     onMouseEnter={() => setActive(i)}
                     onClick={() => choose(city)}
-                    className={`flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
-                      i === active ? 'bg-dark-700/80' : 'hover:bg-dark-700/50'
+                    className={`flex w-full items-start gap-2.5 rounded-[2px] px-2.5 py-2 text-left transition-colors ${
+                      i === active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.03]'
                     }`}
                   >
                     <MapPin
@@ -151,16 +151,16 @@ export default function CitySearch({ onSelect }: CitySearchProps) {
                       className="mt-0.5 shrink-0 text-brand-accent"
                     />
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-white">{city.name}</span>
-                      <span className="block truncate text-[11px] text-slate-400">{city.label}</span>
+                      <span className="block truncate text-[13px] font-medium text-white">{city.name}</span>
+                      <span className="gd-readout block truncate text-[10px] text-slate-500">{city.label}</span>
                     </span>
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="px-4 py-4 text-center text-sm text-slate-500">
-              {loading ? 'Searching…' : 'No cities found'}
+            <p className="px-4 py-5 text-center text-[13px] text-slate-500">
+              {loading ? 'Searching…' : 'No match'}
             </p>
           )}
         </div>
