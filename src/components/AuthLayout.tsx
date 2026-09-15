@@ -1,4 +1,4 @@
-import { Satellite } from 'lucide-react';
+import Mark from './Mark';
 import CityPlan from './auth/CityPlan';
 
 // Matches Dashboard.tsx's YEARS. Six rows x 18px = a 108px reel in an 18px
@@ -48,12 +48,10 @@ export default function AuthLayout({
             <div className="mx-auto w-full max-w-[360px]">
               {/* Brand lockup quotes Header.tsx so login -> dashboard reads continuous. */}
               <div className="flex items-center gap-2.5">
-                <Satellite size={18} aria-hidden="true" className="shrink-0 text-brand-accent" />
+                <Mark size={26} aria-hidden="true" className="shrink-0 text-slate-500" />
                 <div>
-                  <p className="text-[13px] font-semibold uppercase tracking-[0.28em] text-white">Geo Detect</p>
-                  <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-slate-400">
-                    Geospatial Change Monitoring
-                  </p>
+                  <p className="text-[13px] font-semibold uppercase tracking-brand text-white">Geo Detect</p>
+                  <p className="gd-eyebrow mt-1.5">Urban Change Detection</p>
                 </div>
               </div>
 
@@ -71,7 +69,7 @@ export default function AuthLayout({
                 <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Urban Change Detection Platform</p>
                 <span
                   aria-hidden="true"
-                  className="shrink-0 rounded-full bg-dark-700 px-2 py-0.5 text-[10px] font-medium text-slate-300"
+                  className="shrink-0 rounded-[2px] border border-white/[0.07] px-2 py-0.5 font-mono text-[10px] text-slate-300"
                 >
                   v1.2
                 </span>

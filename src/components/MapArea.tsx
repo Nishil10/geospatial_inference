@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Rectangle, CircleMarker, useMapEvents, Tooltip
 import { mockRegions } from '../utils/regions';
 import type { Region } from '../utils/regions';
 import type { BaseLayerType } from './LayerControls';
-import type { Map as LeafletMap } from 'leaflet';
+import type { Map as LeafletMap, LatLngBoundsExpression } from 'leaflet';
 import type { CoveragePoint } from '../utils/useMapillary';
 
 interface MapAreaProps {
@@ -66,10 +66,16 @@ export default function MapArea({ selectedRegion, onRegionSelect, baseLayer, tra
     const showRegionBoxes = false;
 
     return (
-        <div className={`flex-1 h-full w-full bg-dark-800 relative z-0 ${comparisonMode ? 'cursor-crosshair' : ''}`}>
-            {/* Comparison mode border indicator */}
+        <div className={`relative z-0 h-full w-full flex-1 bg-dark-900 ${comparisonMode ? 'cursor-crosshair' : ''}`}>
+            {/* Map-sheet framing. Corner ticks sit over the plate at all times;
+                arming comparison mode lights them and adds a hairline rebate,
+                which reads as a mode change without the 4px border shouting. */}
+            <div
+                aria-hidden="true"
+                className={`gd-ticks pointer-events-none absolute inset-0 z-10 ${comparisonMode ? 'gd-ticks-accent' : ''}`}
+            />
             {comparisonMode && (
-                <div className="absolute inset-0 border-4 border-brand-accent/50 pointer-events-none z-10 rounded-sm" />
+                <div className="pointer-events-none absolute inset-0 z-10 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.35)]" />
             )}
             <MapContainer
                 center={[37.7749, -122.4194]}
@@ -77,7 +83,7 @@ export default function MapArea({ selectedRegion, onRegionSelect, baseLayer, tra
                 minZoom={3}
                 maxBounds={[[-90, -180], [90, 180]]}
                 maxBoundsViscosity={1.0}
-                style={{ height: '100%', width: '100%', background: '#0f172a' }}
+                style={{ height: '100%', width: '100%', background: '#080e1a' }}
                 zoomControl={false}
                 ref={onMapReady}
             >
@@ -125,7 +131,7 @@ export default function MapArea({ selectedRegion, onRegionSelect, baseLayer, tra
                 {showRegionBoxes && mockRegions.map(region => (
                     <Rectangle
                         key={region.id}
-                        bounds={region.bounds as any}
+                        bounds={region.bounds as LatLngBoundsExpression}
                         pathOptions={{
                             color: selectedRegion?.id === region.id ? '#10b981' : '#3b82f6',
                             weight: selectedRegion?.id === region.id ? 3 : 1,
@@ -144,10 +150,10 @@ export default function MapArea({ selectedRegion, onRegionSelect, baseLayer, tra
                         center={point.latlng}
                         radius={4}
                         pathOptions={{
-                            color: '#065f46',
+                            color: '#042f2e',
                             fillColor: '#10b981',
-                            fillOpacity: 1,
-                            weight: 1,
+                            fillOpacity: 0.95,
+                            weight: 1.5,
                         }}
                         eventHandlers={{
                             click: () => {
@@ -158,7 +164,7 @@ export default function MapArea({ selectedRegion, onRegionSelect, baseLayer, tra
                         }}
                     >
                         <Tooltip direction="top" offset={[0, -6]} opacity={0.9}>
-                            <span className="text-xs font-medium">📸 Street View Available{comparisonMode ? <><br/>Click to compare</> : ''}</span>
+                            <span>Street view node{comparisonMode ? <><br />Click to compare</> : ''}</span>
                         </Tooltip>
                     </CircleMarker>
                 ))}

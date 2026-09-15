@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { X, Calendar, MapPin, AlertCircle, Sparkles } from 'lucide-react';
+import { X, MapPin, AlertCircle, ScanSearch, ImageOff, Loader2 } from 'lucide-react';
+import clsx from 'clsx';
 import type { DualStreetView } from '../utils/useMapillary';
 import { useImageComparison } from '../utils/useImageComparison';
 import type { DetectedChange } from '../utils/useImageComparison';
@@ -8,6 +9,9 @@ interface StreetViewModalProps {
   isOpen: boolean;
   onClose: () => void;
   data: DualStreetView | null;
+  /** The point the user actually clicked. Retained so a failed retrieval can
+   *  still report where it was looking — `data` is null on every failure. */
+  fix?: [number, number] | null;
   loading: boolean;
   error: string | null;
 }
@@ -24,7 +28,61 @@ const SCENE_MATCH_NOTE: Record<string, string | null> = {
   different: 'These photos do not appear to show the same scene — treat the result with caution.',
 };
 
-export default function StreetViewModal({ isOpen, onClose, data, loading, error }: StreetViewModalProps) {
+const formatDate = (timestamp: number) =>
+  new Date(timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+const formatCoordinates = (lat: number, lng: number) => `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+/** One half of the diptych. BEFORE sits left and AFTER right, so the pair reads
+ *  in the same direction as the seam sweeps everywhere else in the app. */
+function Plate({
+  epoch,
+  frame,
+  tone,
+}: {
+  epoch: string;
+  frame: DualStreetView['older'];
+  tone: 'before' | 'after';
+}) {
+  return (
+    <figure className="min-w-0">
+      <figcaption className="flex items-baseline justify-between gap-3 pb-2">
+        <span
+          className={clsx(
+            'font-mono text-[10px] font-medium uppercase tracking-label',
+            tone === 'after' ? 'text-brand-accent' : 'text-slate-400',
+          )}
+        >
+          {epoch}
+        </span>
+        <span className="gd-readout text-[11px] text-slate-300">
+          {frame ? formatDate(frame.capturedAt) : '—'}
+        </span>
+      </figcaption>
+
+      <div className="relative aspect-video overflow-hidden rounded-[3px] border border-white/[0.07] bg-dark-900">
+        {frame ? (
+          <img
+            src={frame.url}
+            alt={`Street view, ${epoch.toLowerCase()}`}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-600">
+            <ImageOff size={20} />
+            <span className="gd-eyebrow">No frame</span>
+          </div>
+        )}
+      </div>
+
+      <p className="gd-readout mt-2 text-[10px] text-slate-500">
+        {frame ? formatCoordinates(frame.latlng[0], frame.latlng[1]) : 'Not captured'}
+      </p>
+    </figure>
+  );
+}
+
+export default function StreetViewModal({ isOpen, onClose, data, fix, loading, error }: StreetViewModalProps) {
   const { compare, reset, result, analyzing, error: compareError } = useImageComparison();
 
   // Drop any previous analysis when a different location is opened.
@@ -32,193 +90,165 @@ export default function StreetViewModal({ isOpen, onClose, data, loading, error 
     reset();
   }, [data, reset]);
 
+  // Escape closes. A modal that traps the user behind a mouse-only close button
+  // is the one accessibility failure a dialog cannot excuse.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatCoordinates = (lat: number, lng: number) => {
-    return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-  };
+  const span =
+    data?.older && data?.newer
+      ? (data.newer.capturedAt - data.older.capturedAt) / (1000 * 60 * 60 * 24 * 365.25)
+      : null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-dark-800 rounded-lg max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-dark-700">
-          <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <MapPin className="w-6 h-6 text-accent-green" />
-            Street View Comparison
-          </h2>
+    <div
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-dark-900/85 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Street view comparison"
+        onClick={(e) => e.stopPropagation()}
+        className="gd-card flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden"
+      >
+        {/* ---- Chrome ---- */}
+        <div className="relative flex shrink-0 items-center justify-between gap-4 border-b border-white/[0.07] px-5 py-3.5">
+          <span aria-hidden="true" className="gd-rule absolute inset-x-0 bottom-[-1px]" />
+          <div className="min-w-0">
+            <p className="gd-eyebrow">Change comparison</p>
+            <p className="gd-readout mt-1 truncate text-[13px] text-white">
+              {data
+                ? formatCoordinates(data.location[0], data.location[1])
+                : fix
+                  ? formatCoordinates(fix[0], fix[1])
+                  : '—'}
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-dark-700 rounded-lg transition-colors"
+            aria-label="Close the comparison"
+            className="shrink-0 rounded-[3px] p-2 text-slate-400 transition-colors hover:bg-white/[0.06] hover:text-white"
           >
-            <X className="w-6 h-6 text-slate-400" />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
+        {/* ---- Body ---- */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
           {loading && (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin w-12 h-12 border-4 border-dark-600 border-t-accent-green rounded-full mb-4"></div>
-              <p className="text-slate-300">Loading street view images...</p>
+            <div className="flex flex-col items-center justify-center gap-3 py-16">
+              <Loader2 size={20} className="animate-spin text-brand-accent" />
+              <p className="gd-eyebrow">Retrieving frames</p>
             </div>
           )}
 
           {error && (
-            <div className="bg-alert-red bg-opacity-10 border border-alert-red rounded-lg p-4 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-alert-red flex-shrink-0" />
-              <div>
-                <p className="font-semibold text-alert-red">Error</p>
-                <p className="text-slate-300 text-sm">{error}</p>
+            <div className={`flex items-start gap-3 border-l-2 px-4 py-3 ${/not configured/i.test(error) ? "border-brand-warning bg-brand-warning/[0.07]" : "border-brand-alert bg-brand-alert/[0.08]"}`}>
+              <AlertCircle size={16} className={`mt-px shrink-0 ${/not configured/i.test(error) ? "text-brand-warning" : "text-brand-alert"}`} />
+              <div className="min-w-0">
+                <p className={`gd-eyebrow ${/not configured/i.test(error) ? "text-brand-warning" : "text-brand-alert"}`}>
+                  {/not configured/i.test(error) ? 'Not configured' : 'Retrieval failed'}
+                </p>
+                <p className="mt-1 text-[13px] leading-relaxed text-slate-300">{error}</p>
+                {/not configured/i.test(error) && (
+                  <p className="mt-2 text-[12px] leading-relaxed text-slate-400">
+                    Street view comparison needs a free Mapillary token. Create one at{' '}
+                    <a
+                      href="https://www.mapillary.com/dashboard/developers"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-brand-accent hover:underline"
+                    >
+                      mapillary.com/dashboard/developers
+                    </a>
+                    , then add it to <code className="font-mono text-slate-300">.env</code> and restart the dev server.
+                  </p>
+                )}
               </div>
             </div>
           )}
 
           {data && !loading && !error && (
             <div>
-              {/* Location Info with Street View Availability Indicator */}
-              <div className="mb-6 p-4 bg-dark-700 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <p className="text-slate-400 text-sm flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    Coordinates: {formatCoordinates(data.location[0], data.location[1])}
-                  </p>
-                  {/* Green dot indicator showing street view availability */}
-                  <div className="flex items-center gap-2 bg-accent-green/10 px-3 py-1.5 rounded-full border border-accent-green/30">
-                    <div className="w-3 h-3 rounded-full bg-accent-green shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse"></div>
-                    <span className="text-accent-green text-xs font-medium">Street View Available</span>
-                  </div>
-                </div>
+              {/* The diptych, split by the seam. */}
+              <div className="relative grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-8">
+                <Plate epoch="Before" frame={data.older} tone="before" />
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-px -translate-x-1/2 bg-brand-accent/30 md:block"
+                />
+                <Plate epoch="After" frame={data.newer} tone="after" />
               </div>
 
-              {/* Dual View Comparison */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Current/Latest Image - Show first on LEFT */}
-                <div className="rounded-lg overflow-hidden bg-dark-700">
-                  <div className="relative aspect-video bg-dark-600">
-                    {data.newer ? (
-                      <>
-                        <img
-                          src={data.newer.url}
-                          alt="Street view - current"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black to-transparent p-3">
-                          <div className="flex items-center gap-2 text-info-blue text-sm font-semibold">
-                            <Calendar className="w-4 h-4" />
-                            {formatDate(data.newer.capturedAt)}
-                          </div>
-                          <p className="text-slate-300 text-xs mt-1">📍 Current Street View</p>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-400">
-                        No current image available
-                      </div>
-                    )}
+              {/* ---- Readouts ---- */}
+              {span !== null && (
+                <div className="mt-5 flex flex-wrap items-end gap-x-8 gap-y-3 border-t border-white/[0.07] pt-4">
+                  <div>
+                    <p className="gd-eyebrow">Span</p>
+                    <p className="gd-readout mt-1 text-[26px] font-medium leading-none text-white">
+                      {span.toFixed(1)}
+                      <span className="ml-1.5 text-[11px] font-normal text-slate-400">years</span>
+                    </p>
                   </div>
-                  {data.newer && (
-                    <div className="p-3 border-t border-dark-600">
-                      <p className="text-xs text-slate-400">
-                        📍 {formatCoordinates(data.newer.latlng[0], data.newer.latlng[1])}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Historical/Older Image - Show second on RIGHT */}
-                <div className="rounded-lg overflow-hidden bg-dark-700">
-                  <div className="relative aspect-video bg-dark-600">
-                    {data.older ? (
-                      <>
-                        <img
-                          src={data.older.url}
-                          alt="Street view - historical"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black to-transparent p-3">
-                          <div className="flex items-center gap-2 text-amber-400 text-sm font-semibold">
-                            <Calendar className="w-4 h-4" />
-                            {formatDate(data.older.capturedAt)}
-                          </div>
-                          <p className="text-slate-300 text-xs mt-1">🕰️ Historical Street View</p>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-400">
-                        No historical image available
-                      </div>
-                    )}
+                  <div className="min-w-0">
+                    <p className="gd-eyebrow">Interval</p>
+                    <p className="gd-readout mt-1.5 text-[12px] text-slate-300">
+                      {formatDate(data.older!.capturedAt)} &rarr; {formatDate(data.newer!.capturedAt)}
+                    </p>
                   </div>
-                  {data.older && (
-                    <div className="p-3 border-t border-dark-600">
-                      <p className="text-xs text-slate-400">
-                        📍 {formatCoordinates(data.older.latlng[0], data.older.latlng[1])}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Time Difference */}
-              {data.older && data.newer && (
-                <div className="mt-4 p-4 bg-accent-green bg-opacity-10 border border-accent-green rounded-lg">
-                  <p className="text-accent-green font-semibold">
-                    📊 Time span: {Math.round((data.newer.capturedAt - data.older.capturedAt) / (1000 * 60 * 60 * 24 * 365.25))} years
-                  </p>
                 </div>
               )}
 
-              {/* AI change detection */}
+              {/* ---- Automated read ---- */}
               {data.older && data.newer && (
-                <div className="mt-4 p-4 bg-dark-700 rounded-lg">
-                  <div className="flex items-center justify-between gap-4">
+                <div className="mt-5 border-t border-white/[0.07] pt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-info-blue" />
-                      <span className="text-sm font-semibold text-slate-200">AI Change Detection</span>
+                      <ScanSearch size={14} className="text-brand-info" />
+                      <span className="gd-eyebrow">Automated change read</span>
                     </div>
                     <button
                       onClick={() => compare(data)}
                       disabled={analyzing}
-                      className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-info-blue text-dark-900 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                      className="flex items-center gap-2 rounded-[3px] border border-brand-info/30 bg-brand-info/10 px-3 py-1.5 font-mono text-[10px] font-medium uppercase tracking-label text-brand-info transition-colors hover:bg-brand-info/20 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {analyzing ? 'Analysing…' : result ? 'Re-analyse' : 'Compare with Gemini'}
+                      {analyzing && <Loader2 size={11} className="animate-spin" />}
+                      {analyzing ? 'Analysing' : result ? 'Re-analyse' : 'Run analysis'}
                     </button>
                   </div>
 
-                  {compareError && (
-                    <p className="mt-3 text-sm text-alert-red">{compareError}</p>
-                  )}
+                  {compareError && <p className="mt-3 text-[13px] text-red-300">{compareError}</p>}
 
                   {result && (
-                    <div className="mt-3 space-y-3">
+                    <div className="mt-3.5 space-y-3">
                       {SCENE_MATCH_NOTE[result.sceneMatch] && (
-                        <p className="text-xs text-amber-400 flex items-start gap-2">
-                          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-px" />
+                        <p className="flex items-start gap-2 border-l-2 border-brand-warning bg-brand-warning/[0.07] px-3 py-2 text-[12px] leading-snug text-amber-200/90">
+                          <AlertCircle size={13} className="mt-px shrink-0 text-brand-warning" />
                           {SCENE_MATCH_NOTE[result.sceneMatch]}
                         </p>
                       )}
 
-                      <p className="text-sm text-slate-300">{result.summary}</p>
+                      <p className="text-[13px] leading-relaxed text-slate-300">{result.summary}</p>
 
                       {result.changes.length > 0 && (
-                        <ul className="space-y-2">
+                        <ul className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
                           {result.changes.map((change, i) => (
-                            <li key={i} className="flex items-start gap-3 text-sm">
+                            <li key={i} className="flex items-start gap-3 py-2.5">
                               <span
-                                className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide flex-shrink-0 ${SIGNIFICANCE_STYLES[change.significance]}`}
+                                className={`shrink-0 rounded-[2px] border px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-label ${SIGNIFICANCE_STYLES[change.significance]}`}
                               >
                                 {change.category}
                               </span>
-                              <span className="text-slate-300">{change.description}</span>
+                              <span className="text-[13px] leading-snug text-slate-300">{change.description}</span>
                             </li>
                           ))}
                         </ul>
@@ -228,21 +258,26 @@ export default function StreetViewModal({ isOpen, onClose, data, loading, error 
                 </div>
               )}
 
-              {/* Attribution */}
-              <div className="mt-4 pt-4 border-t border-dark-600">
-                <p className="text-xs text-slate-500">
-                  📸 Street view images provided by{' '}
-                  <a href="https://www.mapillary.com" target="_blank" rel="noopener noreferrer" className="text-accent-green hover:underline">
-                    Mapillary
-                  </a>
-                </p>
-              </div>
+              <p className="gd-eyebrow mt-5 flex items-center gap-1.5 border-t border-white/[0.07] pt-4 normal-case tracking-[0.1em]">
+                <MapPin size={11} className="shrink-0" />
+                Frames via{' '}
+                <a
+                  href="https://www.mapillary.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-accent hover:underline"
+                >
+                  Mapillary
+                </a>
+              </p>
             </div>
           )}
 
           {!loading && !error && !data && (
-            <div className="flex items-center justify-center py-12 text-slate-400">
-              <p>No data available. Try clicking on another location.</p>
+            <div className="flex flex-col items-center justify-center gap-2 py-16">
+              <ImageOff size={20} className="text-slate-600" />
+              <p className="gd-eyebrow">No coverage here</p>
+              <p className="text-[13px] text-slate-400">Try another node on the map.</p>
             </div>
           )}
         </div>

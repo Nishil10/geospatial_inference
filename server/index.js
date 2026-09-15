@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import compareRoutes from './routes/compare.js';
 import cityRoutes from './routes/city.js';
+import reportRoutes from './routes/reports.js';
+import { seedReports } from './seed.js';
 
 dotenv.config();
 
@@ -19,13 +21,18 @@ app.use(express.json({ limit: '2mb' }));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected successfully'))
+  .then(async () => {
+    console.log('MongoDB connected successfully');
+    // No-op unless the reports collection is empty.
+    await seedReports();
+  })
   .catch((err) => console.error('MongoDB connection error:', err));
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/compare', compareRoutes);
 app.use('/api/city', cityRoutes);
+app.use('/api/reports', reportRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
