@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { X, MapPin, AlertCircle, ScanSearch, ImageOff, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, MapPin, AlertCircle, ScanSearch, ImageOff, Loader2, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
 import type { DualStreetView } from '../utils/useMapillary';
 import { useImageComparison } from '../utils/useImageComparison';
@@ -22,6 +22,12 @@ const SIGNIFICANCE_STYLES: Record<DetectedChange['significance'], string> = {
   low: 'bg-slate-500/15 text-slate-400 border-slate-500/40',
 };
 
+const PRIORITY_STYLES: Record<string, string> = {
+  high: 'bg-red-500/15 text-red-400 border-red-500/40',
+  medium: 'bg-amber-400/15 text-amber-400 border-amber-400/40',
+  low: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40',
+};
+
 const SCENE_MATCH_NOTE: Record<string, string | null> = {
   same: null,
   partial: 'These photos only partly overlap, so some differences may be camera angle rather than real change.',
@@ -33,8 +39,7 @@ const formatDate = (timestamp: number) =>
 
 const formatCoordinates = (lat: number, lng: number) => `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
-/** One half of the diptych. BEFORE sits left and AFTER right, so the pair reads
- *  in the same direction as the seam sweeps everywhere else in the app. */
+/** One half of the diptych. BEFORE sits left and AFTER right. */
 function Plate({
   epoch,
   frame,
@@ -84,14 +89,15 @@ function Plate({
 
 export default function StreetViewModal({ isOpen, onClose, data, fix, loading, error }: StreetViewModalProps) {
   const { compare, reset, result, analyzing, error: compareError } = useImageComparison();
+  const [activeTab, setActiveTab] = useState<'distinction' | 'recommendations'>('distinction');
 
   // Drop any previous analysis when a different location is opened.
   useEffect(() => {
     reset();
+    setActiveTab('distinction');
   }, [data, reset]);
 
-  // Escape closes. A modal that traps the user behind a mouse-only close button
-  // is the one accessibility failure a dialog cannot excuse.
+  // Escape key closes modal.
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -107,6 +113,11 @@ export default function StreetViewModal({ isOpen, onClose, data, fix, loading, e
     data?.older && data?.newer
       ? (data.newer.capturedAt - data.older.capturedAt) / (1000 * 60 * 60 * 24 * 365.25)
       : null;
+
+  const changesCount = result?.changes?.length ?? 0;
+  // Fallback to any recommendations array returned in result
+  const recommendations = (result as any)?.recommendations ?? [];
+  const recommendationsCount = recommendations.length;
 
   return (
     <div
@@ -208,14 +219,52 @@ export default function StreetViewModal({ isOpen, onClose, data, fix, loading, e
                 </div>
               )}
 
-              {/* ---- Automated read ---- */}
+              {/* ---- Analysis Bar & Tabs Header ---- */}
               {data.older && data.newer && (
                 <div className="mt-5 border-t border-white/[0.07] pt-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <ScanSearch size={14} className="text-brand-info" />
-                      <span className="gd-eyebrow">Automated change read</span>
+                    {/* Tabs Selection */}
+                    <div className="flex items-center gap-1 border-b border-white/[0.08]">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('distinction')}
+                        className={clsx(
+                          'flex items-center gap-2 border-b-2 px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-label transition-colors',
+                          activeTab === 'distinction'
+                            ? 'border-brand-info text-brand-info bg-brand-info/10'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                        )}
+                      >
+                        <ScanSearch size={13} />
+                        <span>Distinction</span>
+                        {result && (
+                          <span className="rounded bg-white/[0.08] px-1.5 py-0.2 text-[9px] text-slate-300">
+                            {changesCount}
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('recommendations')}
+                        className={clsx(
+                          'flex items-center gap-2 border-b-2 px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-label transition-colors',
+                          activeTab === 'recommendations'
+                            ? 'border-brand-accent text-brand-accent bg-brand-accent/10'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                        )}
+                      >
+                        <Sparkles size={13} />
+                        <span>Recommendations</span>
+                        {result && (
+                          <span className="rounded bg-white/[0.08] px-1.5 py-0.2 text-[9px] text-slate-300">
+                            {recommendationsCount}
+                          </span>
+                        )}
+                      </button>
                     </div>
+
+                    {/* Action Button */}
                     <button
                       onClick={() => compare(data)}
                       disabled={analyzing}
@@ -228,30 +277,101 @@ export default function StreetViewModal({ isOpen, onClose, data, fix, loading, e
 
                   {compareError && <p className="mt-3 text-[13px] text-red-300">{compareError}</p>}
 
+                  {/* Tab Panels */}
                   {result && (
-                    <div className="mt-3.5 space-y-3">
-                      {SCENE_MATCH_NOTE[result.sceneMatch] && (
-                        <p className="flex items-start gap-2 border-l-2 border-brand-warning bg-brand-warning/[0.07] px-3 py-2 text-[12px] leading-snug text-amber-200/90">
-                          <AlertCircle size={13} className="mt-px shrink-0 text-brand-warning" />
-                          {SCENE_MATCH_NOTE[result.sceneMatch]}
-                        </p>
+                    <div className="mt-4">
+                      {/* TAB 1: DISTINCTIONS */}
+                      {activeTab === 'distinction' && (
+                        <div className="space-y-3">
+                          {SCENE_MATCH_NOTE[result.sceneMatch] && (
+                            <p className="flex items-start gap-2 border-l-2 border-brand-warning bg-brand-warning/[0.07] px-3 py-2 text-[12px] leading-snug text-amber-200/90">
+                              <AlertCircle size={13} className="mt-px shrink-0 text-brand-warning" />
+                              {SCENE_MATCH_NOTE[result.sceneMatch]}
+                            </p>
+                          )}
+
+                          <p className="text-[13px] leading-relaxed text-slate-300">{result.summary}</p>
+
+                          {result.changes?.length > 0 ? (
+                            <ul className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
+                              {result.changes.map((change, i) => (
+                                <li key={i} className="flex items-start gap-3 py-2.5">
+                                  <span
+                                    className={`shrink-0 rounded-[2px] border px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-label ${SIGNIFICANCE_STYLES[change.significance]}`}
+                                  >
+                                    {change.category}
+                                  </span>
+                                  <span className="text-[13px] leading-snug text-slate-300">{change.description}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="py-2 text-[12px] text-slate-500 font-mono">No physical changes detected.</p>
+                          )}
+                        </div>
                       )}
 
-                      <p className="text-[13px] leading-relaxed text-slate-300">{result.summary}</p>
+                      {/* TAB 2: RECOMMENDATIONS */}
+                      {activeTab === 'recommendations' && (
+                        <div className="space-y-3">
+                          <p className="text-[12px] text-slate-400 font-mono">
+                            Actionable urban accessibility, transit, and pedestrian interventions:
+                          </p>
 
-                      {result.changes.length > 0 && (
-                        <ul className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
-                          {result.changes.map((change, i) => (
-                            <li key={i} className="flex items-start gap-3 py-2.5">
-                              <span
-                                className={`shrink-0 rounded-[2px] border px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-label ${SIGNIFICANCE_STYLES[change.significance]}`}
-                              >
-                                {change.category}
-                              </span>
-                              <span className="text-[13px] leading-snug text-slate-300">{change.description}</span>
-                            </li>
-                          ))}
-                        </ul>
+                          {recommendations.length > 0 ? (
+                            <div className="grid gap-2.5 border-t border-white/[0.06] pt-3">
+                              {recommendations.map((rec: any, idx: number) => {
+                                const solution = rec.proposedSolution || rec.suggestedImprovement;
+                                const issue = rec.currentDeficiency || rec.currentIssue;
+                                const benefit = rec.publicBenefit || rec.expectedBenefit;
+                                const priority = rec.priority?.toLowerCase() || 'medium';
+
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="rounded-[3px] border border-white/[0.06] bg-white/[0.02] p-3 transition-colors hover:border-white/[0.12]"
+                                  >
+                                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                                      <span className="font-mono text-[10px] uppercase font-semibold text-brand-accent tracking-label">
+                                        {rec.targetArea?.replace(/_/g, ' ') || 'Infrastructure'}
+                                      </span>
+                                      <span
+                                        className={`rounded-[2px] border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-label ${PRIORITY_STYLES[priority] || PRIORITY_STYLES.low}`}
+                                      >
+                                        {priority} priority
+                                      </span>
+                                    </div>
+
+                                    <p className="text-[13px] font-medium text-slate-100">{solution}</p>
+
+                                    <div className="mt-2 space-y-1 text-[12px]">
+                                      {issue && (
+                                        <p className="text-slate-400">
+                                          <span className="font-mono text-[10px] text-slate-500 uppercase mr-1">
+                                            Current Issue:
+                                          </span>
+                                          {issue}
+                                        </p>
+                                      )}
+                                      {benefit && (
+                                        <p className="text-emerald-400/90">
+                                          <span className="font-mono text-[10px] text-emerald-600 uppercase mr-1">
+                                            Expected Benefit:
+                                          </span>
+                                          {benefit}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="py-2 text-[12px] text-slate-500 font-mono">
+                              No recommendations returned for this node.
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}

@@ -3,7 +3,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 
 const router = express.Router();
 
-const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 let client = null;
@@ -13,8 +13,6 @@ const getClient = () => {
   return client;
 };
 
-// Gemini takes images as inline base64. Fetching them here rather than in the
-// browser also sidesteps CORS on the Mapillary CDN.
 const fetchAsInlineData = async (url) => {
   const response = await fetch(url);
   if (!response.ok) {
@@ -48,7 +46,7 @@ const RESPONSE_SCHEMA = {
     },
     changes: {
       type: Type.ARRAY,
-      description: 'Individual differences, most significant first.',
+      description: 'Individual differences over time, most significant first.',
       items: {
         type: Type.OBJECT,
         properties: {
@@ -62,21 +60,64 @@ const RESPONSE_SCHEMA = {
         required: ['category', 'description', 'significance'],
       },
     },
+    recommendations: {
+      type: Type.ARRAY,
+      description: 'Actionable urban design and infrastructure recommendations for better access to public facilities, transit, and pedestrian equity.',
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          targetArea: {
+            type: Type.STRING,
+            enum: [
+              'public_transit_access',       // Bus stops, shelters, boarding platforms
+              'ada_and_universal_access',    // Curb ramps, tactile paving, clear sidewalk widths
+              'pedestrian_safety',           // Crosswalks, curb extensions, refuge islands
+              'active_mobility_lanes',       // Protected bike lanes vs. sharrows
+              'streetscape_amenities',       // Lighting, wayfinding, shade, trash receptacles
+              'road_geometry_and_traffic',   // Speed calming, lane narrowing, intersection radius
+            ],
+            description: 'The urban domain being targeted.',
+          },
+          priority: {
+            type: Type.STRING,
+            enum: ['high', 'medium', 'low'],
+            description: 'Urgency based on safety and public access needs.',
+          },
+          currentDeficiency: {
+            type: Type.STRING,
+            description: 'Current barrier or deficiency visible in the newer image.',
+          },
+          proposedSolution: {
+            type: Type.STRING,
+            description: 'Specific physical intervention to improve access and utility.',
+          },
+          publicBenefit: {
+            type: Type.STRING,
+            description: 'Concrete impact on mobility, safety, or access to public facilities.',
+          },
+        },
+        required: ['targetArea', 'priority', 'currentDeficiency', 'proposedSolution', 'publicBenefit'],
+      },
+    },
   },
-  required: ['sceneMatch', 'summary', 'changes'],
+  required: ['sceneMatch', 'summary', 'changes', 'recommendations'],
 };
 
-const buildPrompt = (olderDate, newerDate) => `You are analysing urban change from two street-level photographs of approximately the same location.
+const buildPrompt = (olderDate, newerDate) => `You are an expert urban planner, civil engineer, and public accessibility specialist analyzing street-level imagery over time.
 
-Image 1 was captured earlier${olderDate ? ` (${olderDate})` : ''}.
-Image 2 was captured later${newerDate ? ` (${newerDate})` : ''}.
+Image 1 (earlier): ${olderDate || 'Unknown date'}
+Image 2 (later): ${newerDate || 'Unknown date'}
 
-These are crowd-sourced photos, so the camera position, heading and weather usually differ. First judge whether they actually show the same physical scene and set sceneMatch accordingly. If they do not, say so in the summary and return few or no changes rather than inventing them.
+Determine if both images capture the same physical location and set sceneMatch.
 
-When they do overlap, report durable changes to the built environment: new or demolished buildings, construction, road and pavement work, changed vegetation, new signage or infrastructure. Ignore transient differences such as parked cars, pedestrians, lighting, season and weather unless they are the only notable difference. Describe only what is visible in the images.`;
+Provide your response in two parts:
+1. CHANGES: Concrete built-environment changes between Image 1 and Image 2.
+2. RECOMMENDATIONS: Provide 3 to 5 high-impact, actionable physical interventions based on Image 2 to maximize accessibility to public facilities, public transport, and street infrastructure:
+   - Universal & ADA Accessibility: Sidewalk widths, curb ramps, tactile paving for vision-impaired pedestrians, driveway apron levelness.
+   - Public Transit & Amenities: Bus stop enhancements, boarding pads, weather shelters, wayfinding to nearby transit/civic hubs.
+   - Active Transportation: Upgrading painted sharrows to protected/separated bike lanes, daylighting intersections.
+   - Traffic Calming & Safety: Curb extensions (bulb-outs), mid-block crossings, pedestrian refuge islands, and pedestrian-scale street lighting.`;
 
-// @route   POST /api/compare
-// @desc    Compare two street view images and describe what changed
 router.post('/', async (req, res) => {
   try {
     const { olderUrl, newerUrl, olderDate, newerDate } = req.body;
@@ -87,7 +128,7 @@ router.post('/', async (req, res) => {
 
     const ai = getClient();
     if (!ai) {
-      return res.status(503).json({ message: 'Image comparison is not configured. Add GEMINI_API_KEY to .env.' });
+      return res.status(503).json({ message: 'Gemini API key is not configured.' });
     }
 
     const [olderPart, newerPart] = await Promise.all([
